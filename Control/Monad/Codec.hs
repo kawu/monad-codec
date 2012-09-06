@@ -42,6 +42,7 @@ module Control.Monad.Codec
 , AtomLens
 , maybeEncode
 , encode
+, encode'
 , maybeDecode
 , decode
 
@@ -50,48 +51,59 @@ module Control.Monad.Codec
 , execCodec
 ) where
 
-import Control.Monad (forM)
-
-import Control.Applicative (Applicative, (<$>), (<*>))
-import Control.Lens (Simple, Lens, view, set, _1, _2)
+import Control.Applicative (Applicative, (<$>))
+import Control.Lens (Simple, Lens, view, set)
 import qualified Control.Monad.State as S
 import qualified Data.Map as M
 import qualified Data.IntMap as I
 
-newtype Codec c a = Codec
-    { unCodec :: S.State c a }
+-- | A Codec monad preserves mappings between objects and respective
+-- codec components.
+newtype Codec c a = Codec (S.State c a)
     deriving (Functor, Applicative, Monad)
 
-{-# INLINE getCodec #-}
+-- | Get codec structure from the Codec monad.
 getCodec :: Codec c c
 getCodec = Codec S.get
+{-# INLINE getCodec #-}
 
-{-# INLINE setCodec #-}
+-- | Set codec structure within the Codec monad.
 setCodec :: c -> Codec c ()
 setCodec codec = Codec (S.put codec)
+{-# INLINE setCodec #-}
 
+-- | Atomic Codec component, which represents to and fro mapping
+-- between 'a' objects and unique intergers.
 data AtomCodec a = AtomCodec
     { to    :: !(M.Map a Int)
     , from  :: !(I.IntMap a) }
 
--- | Empty atom codec.
+-- | Empty codec component.
 empty :: AtomCodec a
 empty = AtomCodec M.empty I.empty
 
+-- | Update a map with a given element and increase.  If the element
+-- has not been previously in the map it will be assigned a new
+-- unique integer number.
 updateMap :: Ord a => M.Map a Int -> a -> M.Map a Int
 updateMap mp x =
   case M.lookup x mp of
-    Just k  -> mp
+    Just _k -> mp
     Nothing -> M.insert x n mp
   where
     !n = M.size mp
 
+-- | Just a type synonym for a lens between codec and codec component.
 type AtomLens c a = Simple Lens c (AtomCodec a)
 
+-- | Encode the object with codec component identified by the lens.
+-- Return Nothing if the object is not present in the atomic
+-- codec component.
 maybeEncode :: Ord a => AtomLens c a -> a -> Codec c (Maybe Int)
 maybeEncode lens x = 
     M.lookup x . to . view lens <$> getCodec
 
+-- | Encode the object with codec component identified by the lens.
 encode :: Ord a => AtomLens c a -> a -> Codec c Int
 encode lens x = do
     codec <- getCodec
@@ -117,34 +129,33 @@ encode' lens x = do
     setCodec codec'
     return y
 
+-- | Decode the number with codec component identified by the lens.
+-- Return Nothing if the object is not present in the atomic
+-- codec component.
 maybeDecode :: Ord a => AtomLens c a -> Int -> Codec c (Maybe a)
 maybeDecode lens i = 
     I.lookup i . from . view lens <$> getCodec
 
+-- | Decode the number with codec component identified by the lens.
+-- Report error when the number is not present in the codec component. 
 decode :: Ord a => AtomLens c a -> Int -> Codec c a
 decode lens i = maybeDecode lens i >>= \mx -> case mx of
     Just x  -> return x
     Nothing -> error $ "decode: no " ++ show i ++ " key"
 
+-- | Run the Codec monad with the initial codec value.
+-- Return both the result and the final codec state.
+-- The obtained codec can be used next to perform subsequent
+-- decoding or encoding.
 runCodec :: c -> Codec c a -> (a, c)
 runCodec codec (Codec state) = S.runState state codec
 
+-- | Evaluate the Codec monad with the initial codec value.
+-- Only the monad result will be returned.
 evalCodec :: c -> Codec c a -> a
 evalCodec codec (Codec state) = S.evalState state codec
 
+-- | Execute the Codec monad with the initial codec value.
+-- Only the final codec state will be returned.
 execCodec :: c -> Codec c a -> c
 execCodec codec (Codec state) = S.execState state codec
-
--- example1 = evalCodec empty $ do
---     let xs = "abcabd"
---     ys <- mapM (encode id) xs
---     zs <- mapM (decode id) ys
---     return $ zip zs ys
--- 
--- example2 = evalCodec (empty, empty) $ do
---     let xs = zip "abcabd" [1, 34342, 5435, 34342, 124, 1]
---     ys <- forM xs $ \(x, y) ->
---         (,) <$> encode _1 x <*> encode _2 y
---     zs <- forM ys $ \(i, j) -> 
---         (,) <$> decode _1 i <*> decode _2 j
---     return (zs, ys)
