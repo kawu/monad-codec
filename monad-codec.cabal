@@ -1,5 +1,5 @@
 name:               monad-codec
-version:            0.1.0
+version:            0.1.1
 synopsis:           Monadic conversion between complex data structures and unique integers
 description:
     The library provides functions for encoding and decoding complex data
