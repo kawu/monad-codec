@@ -6,9 +6,8 @@
 -- simplest case the entire sturecture can be transformed to unique
 -- atom (see 'example1' below).  When it is not sufficient to encode
 -- the input object with one codec, more complex codec structure can
--- be used (see 'example2' below).  In order to simplify codec
--- manipulations the library relies on a 'lens' package  which provides
--- lenses for typical data types.
+-- be used (see 'example2' below).  The library relies on a 'data-lens'
+-- package which provides types and functions for codec manipulations.
 --
 -- Example:
 --
