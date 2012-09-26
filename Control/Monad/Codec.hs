@@ -160,5 +160,7 @@ evalCodec codec (Codec state) = S.evalState state codec
 execCodec :: c -> Codec c a -> c
 execCodec codec (Codec state) = S.execState state codec
 
+-- | Identity lenses should be used whenever the structure of the codec
+-- is simple, i.e. only one atomic codec is used.
 idLens :: Lens a a
 idLens = iso id id
