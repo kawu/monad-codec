@@ -1,6 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE RankNTypes #-}
 
 -- | The Codec monad provides functions for encoding and decoding
 -- complex data structures with unique integer numbers.  In the
@@ -15,8 +14,8 @@
 --
 -- > example1 = evalCodec empty $ do
 -- >     let xs = "abcabd"
--- >     ys <- mapM (encode id) xs
--- >     zs <- mapM (decode id) ys
+-- >     ys <- mapM (encode idLens) xs
+-- >     zs <- mapM (decode idLens) ys
 -- >     return $ zip zs ys
 --
 -- >>> example1
@@ -25,9 +24,9 @@
 -- > example2 = evalCodec (empty, empty) $ do
 -- >     let xs = zip "abcabd" [1, 34342, 5435, 34342, 124, 1]
 -- >     ys <- forM xs $ \(x, y) ->
--- >         (,) <$> encode _1 x <*> encode _2 y
+-- >         (,) <$> encode fstLens x <*> encode sndLens y
 -- >     zs <- forM ys $ \(i, j) -> 
--- >         (,) <$> decode _1 i <*> decode _2 j
+-- >         (,) <$> decode fstLens i <*> decode sndLens j
 -- >     return (zs, ys)
 --
 -- >>> fst example2
@@ -49,10 +48,12 @@ module Control.Monad.Codec
 , runCodec
 , evalCodec
 , execCodec
+
+, idLens
 ) where
 
 import Control.Applicative (Applicative, (<$>))
-import Control.Lens (Simple, Lens, view, set)
+import Data.Lens.Common (Lens, getL, setL, iso)
 import qualified Control.Monad.State as S
 import qualified Data.Map as M
 import qualified Data.IntMap as I
@@ -94,24 +95,24 @@ updateMap mp x =
     !n = M.size mp
 
 -- | Just a type synonym for a lens between codec and codec component.
-type AtomLens c a = Simple Lens c (AtomCodec a)
+type AtomLens c a = Lens c (AtomCodec a)
 
 -- | Encode the object with codec component identified by the lens.
 -- Return Nothing if the object is not present in the atomic
 -- codec component.
 maybeEncode :: Ord a => AtomLens c a -> a -> Codec c (Maybe Int)
 maybeEncode lens x = 
-    M.lookup x . to . view lens <$> getCodec
+    M.lookup x . to . getL lens <$> getCodec
 
 -- | Encode the object with codec component identified by the lens.
 encode :: Ord a => AtomLens c a -> a -> Codec c Int
 encode lens x = do
     codec <- getCodec
-    let atomCodec = view lens codec
+    let atomCodec = getL lens codec
         m' = updateMap (to atomCodec) x
         y  = m' M.! x
         r' = I.insert y x (from atomCodec)
-        codec' = set lens (AtomCodec m' r') codec
+        codec' = setL lens (AtomCodec m' r') codec
     setCodec codec'
     return y
 
@@ -122,10 +123,10 @@ encode lens x = do
 encode' :: Ord a => AtomLens c a -> a -> Codec c Int
 encode' lens x = do
     codec <- getCodec
-    let atomCodec = view lens codec
+    let atomCodec = getL lens codec
         m' = updateMap (to atomCodec) x
         y  = m' M.! x
-        codec' = set lens (atomCodec { to = m' }) codec
+        codec' = setL lens (atomCodec { to = m' }) codec
     setCodec codec'
     return y
 
@@ -134,7 +135,7 @@ encode' lens x = do
 -- codec component.
 maybeDecode :: Ord a => AtomLens c a -> Int -> Codec c (Maybe a)
 maybeDecode lens i = 
-    I.lookup i . from . view lens <$> getCodec
+    I.lookup i . from . getL lens <$> getCodec
 
 -- | Decode the number with codec component identified by the lens.
 -- Report error when the number is not present in the codec component. 
@@ -159,3 +160,6 @@ evalCodec codec (Codec state) = S.evalState state codec
 -- Only the final codec state will be returned.
 execCodec :: c -> Codec c a -> c
 execCodec codec (Codec state) = S.execState state codec
+
+idLens :: Lens a a
+idLens = iso id id
