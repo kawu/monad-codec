@@ -53,7 +53,7 @@ module Control.Monad.Codec
 
 import Control.Applicative (Applicative, (<$>))
 import Data.Lens.Common (Lens, getL, setL, iso)
-import qualified Control.Monad.State as S
+import qualified Control.Monad.State.Strict as S
 import qualified Data.Map as M
 import qualified Data.IntMap as I
 
@@ -82,9 +82,9 @@ data AtomCodec a = AtomCodec
 empty :: AtomCodec a
 empty = AtomCodec M.empty I.empty
 
--- | Update a map with a given element and increase.  If the element
--- has not been previously in the map it will be assigned a new
--- unique integer number.
+-- | Update the map with the given element and increase the counter.  If the
+-- element has not been previously in the map it will be assigned a new unique
+-- integer number.
 updateMap :: Ord a => M.Map a Int -> a -> M.Map a Int
 updateMap mp x =
   case M.lookup x mp of
@@ -111,7 +111,8 @@ encode lens x = do
         m' = updateMap (to atomCodec) x
         y  = m' M.! x
         r' = I.insert y x (from atomCodec)
-        codec' = setL lens (AtomCodec m' r') codec
+        !atom = AtomCodec m' r'
+        codec' = setL lens atom codec
     setCodec codec'
     return y
 
@@ -125,7 +126,8 @@ encode' lens x = do
     let atomCodec = getL lens codec
         m' = updateMap (to atomCodec) x
         y  = m' M.! x
-        codec' = setL lens (atomCodec { to = m' }) codec
+        !atom = atomCodec { to = m' }
+        codec' = setL lens atom  codec
     setCodec codec'
     return y
 
