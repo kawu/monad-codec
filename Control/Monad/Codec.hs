@@ -51,8 +51,9 @@ module Control.Monad.Codec
 , idLens
 ) where
 
-import Control.Applicative (Applicative, (<$>))
+import Control.Applicative (Applicative, (<$>), (<*>))
 import Data.Lens.Common (Lens, getL, setL, iso)
+import Data.Binary (Binary, put, get)
 import qualified Control.Monad.State.Strict as S
 import qualified Data.Map as M
 import qualified Data.IntMap as I
@@ -77,6 +78,10 @@ setCodec codec = Codec (S.put codec)
 data AtomCodec a = AtomCodec
     { to    :: !(M.Map a Int)
     , from  :: !(I.IntMap a) }
+
+instance (Ord a, Binary a) => Binary (AtomCodec a) where
+    put atom = put (to atom) >> put (from atom)
+    get = AtomCodec <$> get <*> get
 
 -- | Empty codec component.
 empty :: AtomCodec a
