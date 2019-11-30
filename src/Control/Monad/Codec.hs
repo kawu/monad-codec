@@ -52,7 +52,7 @@ module Control.Monad.Codec
 ) where
 
 import Control.Applicative (Applicative, (<$>), (<*>))
-import Data.Lens.Common (Lens, getL, setL, iso)
+import Data.Lens.Light (Lens, getL, setL, iso)
 import Data.Binary (Binary, put, get)
 import qualified Control.Monad.State.Strict as S
 import qualified Data.Map as M

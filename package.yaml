@@ -1,0 +1,31 @@
+name:                monad-codec
+version:             0.2.1
+github:              "kawu/monad-codec"
+license:             BSD3
+author:              "Jakub Waszczuk"
+maintainer:          "waszczuk.kuba@gmail.com"
+copyright:           "2012-2019 IPI PAN, Jakub Waszczuk"
+
+extra-source-files:
+- README.md
+# - ChangeLog.md
+
+# Metadata used when publishing your package
+synopsis:            Monadic conversion between complex data structures and unique integers
+category:            Control
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/kawu/monad-codec#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- containers
+# - data-lens
+- data-lens-light
+- mtl
+- binary
+
+library:
+  source-dirs: src
